@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image
 import os
 
-app = Flask(__name__)
+st.title("Image Compressor with Streamlit")
 
 # Set upload and compressed folder paths to the user's home directory
 UPLOAD_FOLDER = os.path.join(os.path.expanduser('~'), 'uploads')
