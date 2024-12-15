@@ -1,51 +1,199 @@
 from flask import Flask, render_template_string, request, send_file
 from PIL import Image
-from werkzeug.utils import secure_filename
 import os
 
-app = Flask(_name_)
+app = Flask(__name__)
 
-# Set upload and compressed folder paths
+# Set upload and compressed folder paths to the user's home directory
 UPLOAD_FOLDER = os.path.join(os.path.expanduser('~'), 'uploads')
 COMPRESSED_FOLDER = os.path.join(os.path.expanduser('~'), 'compressed')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(COMPRESSED_FOLDER, exist_ok=True)
 
-# File extensions allowed for upload
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# HTML for homepage
+# Homepage HTML
 homepage_html = '''
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pixel Compress</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1e1e2f;
+            color: #fff;
+            margin: 0;
+            text-align: center;
+            padding: 50px;
+            image-rendering: pixelated;
+        }
+        .container {
+            display: inline-block;
+            background: #3a3a5a;
+            border: 4px solid #0056b3;
+            box-shadow: 4px 4px #003366;
+            padding: 30px;
+            border-radius: 8px;
+            width: 300px;
+        }
+        h1 {
+            color: #66a3ff;
+            font-size: 32px;
+            text-transform: uppercase;
+        }
+        p {
+            color: #cce6ff;
+        }
+        .btn {
+            font-size: 20px;
+            background-color: #0056b3;
+            color: #ffffff;
+            padding: 10px 20px;
+            border: 2px solid #003366;
+            border-radius: 4px;
+            text-decoration: none;
+            cursor: pointer;
+            box-shadow: 2px 2px #003366;
+            display: block;
+            margin: 10px auto;
+        }
+        .btn:hover {
+            background-color: #66a3ff;
+        }
+    </style>
 </head>
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f9; text-align: center; padding: 50px;">
-    <h1 style="color: #333;">Welcome to Pixel Compress</h1>
-    <p style="color: #555;">Compress your images in a pixelated style</p>
-    <a href="/compress" style="padding: 10px 20px; background: #007BFF; color: white; text-decoration: none; border-radius: 5px;">Start Compressing</a>
+<body>
+    <div class="container">
+        <h1>Pixel Compress</h1>
+        <p>Compress your photos in a pixelated style!</p>
+        <a href="/compress" class="btn">Start Compressing</a>
+        <a href="/report" class="btn">View Report</a>
+    </div>
 </body>
 </html>
 '''
 
-# HTML for compression page
+# Compress Page HTML
 compress_html = '''
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Compress Image</title>
-</head>
-<body style="font-family: Arial, sans-serif; background-color: #f4f4f9; text-align: center; padding: 50px;">
-    <h1 style="color: #333;">Compress Your Image</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*" required style="margin: 20px 0; padding: 10px;">
-        <input type="number" name="quality" min="1" max="100" placeholder="Quality (1-100)" required style="margin: 10px 0; padding: 10px;">
-        <button type="submit" style="padding: 10px 20px; background: #007BFF; color: white; border: none; border-radius: 5px;">Upload and Compress</button>
-    </form>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css" />
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1e1e2f;
+            color: #fff;
+            margin: 0;
+            text-align: center;
+            padding: 50px;
+            image-rendering: pixelated;
+        }
+        .container {
+            display: inline-block;
+            background: #3a3a5a;
+            border: 4px solid #0056b3;
+            box-shadow: 4px 4px #003366;
+            padding: 30px;
+            border-radius: 8px;
+            width: 300px;
+        }
+        h1 {
+            color: #66a3ff;
+            font-size: 32px;
+            text-transform: uppercase;
+        }
+        input[type="file"] {
+            display: block;
+            margin: 20px auto;
+            padding: 5px;
+            border: 2px dashed #66a3ff;
+            background-color: #3a3a5a;
+            color: #cce6ff;
+            width: 80%;
+            text-align: center;
+        }
+        .btn {
+            font-size: 20px;
+            background-color: #0056b3;
+            color: #ffffff;
+            padding: 10px 20px;
+            border: 2px solid #003366;
+            border-radius: 4px;
+            cursor: pointer;
+            box-shadow: 2px 2px #003366;
+        }
+        .btn:hover {
+            background-color: #66a3ff;
+ ```python
+        }
+    </style>
+ </head>
+<body>
+    <div class="container">
+        <h1>Compress Your Image</h1>
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <input type="file" name="image" accept="image/*" required>
+            <button type="submit" class="btn">Upload and Compress</button>
+        </form>
+        <div id="cropper-container"></div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    <script>
+        const input = document.querySelector('input[type="file"]');
+        let cropper;
+
+        input.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const image = document.createElement('img');
+                    image.src = e.target.result;
+                    document.body.appendChild(image);
+                    cropper = new Cropper(image, {
+                        aspectRatio: 16 / 9,
+                        viewMode: 1,
+                        autoCropArea: 1,
+                        ready() {
+                            // Crop the image when ready
+                        },
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.querySelector('form').addEventListener('submit', (event) => {
+            event.preventDefault();
+            const canvas = cropper.getCroppedCanvas();
+            canvas.toBlob((blob) => {
+                const formData = new FormData();
+                formData.append('image', blob, 'cropped.jpg');
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = 'compressed.jpg';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                })
+                .catch(() => alert('Error uploading image'));
+            });
+        });
+    </script>
 </body>
 </html>
 '''
@@ -62,35 +210,20 @@ def compress():
 def upload_image():
     if 'image' not in request.files:
         return "No file part", 400
-    
     file = request.files['image']
     if file.filename == '':
         return "No selected file", 400
-    
-    if not allowed_file(file.filename):
-        return "Invalid file type. Only PNG, JPG, JPEG, and GIF are allowed.", 400
-    
-    # Save the file securely
-    file_path = os.path.join(UPLOAD_FOLDER, secure_filename(file.filename))
-    file.save(file_path)
-    print(f"File saved to: {file_path}")
+    if file:
+        file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+        file.save(file_path)
+        
+        # Compress the image
+        compressed_path = os.path.join(COMPRESSED_FOLDER, file.filename)
+        image = Image.open(file_path)
+        image.save(compressed_path, optimize=True, quality=50)  # Adjust quality as needed
+        
+        return send_file(compressed_path, as_attachment=True)
 
-    # Compress the image
-    compressed_path = os.path.join(COMPRESSED_FOLDER, secure_filename(file.filename))
-    print(f"Compressing file to: {compressed_path}")
-    
-    quality = int(request.form.get('quality', 50))  # Default quality is 50
-    image = Image.open(file_path)
-    image.save(compressed_path, optimize=True, quality=quality)
-    print(f"File successfully compressed: {compressed_path}")
-
-    # Send the compressed file back to the user
-    return send_file(compressed_path, as_attachment=True)
-
-@app.errorhandler(500)
-def internal_error(error):
-    return "An internal error occurred. Please try again later.", 500
-
-if _name_ == '_main_':
-    app.run(debug=False, host='0.0.0.0', port=5000)
+if __name__ == '__main__':
+    app.run(debug=True)
     
