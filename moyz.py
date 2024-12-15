@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request, send_file
+import streamlit as st
 from PIL import Image
 import os
 
